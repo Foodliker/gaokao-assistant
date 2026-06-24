@@ -346,65 +346,9 @@ def page_recommend():
 
 
 # ============================================================
-# 院校查询
+# 院校查询（栈式expander展开）
 # ============================================================
 def page_university():
-    # --- 院校详情弹窗 ---
-    # 如果选中了某所院校，先在最顶部显示详情面板
-    if "selected_uni" in st.session_state:
-        uni_name = st.session_state["selected_uni"]
-        u = uni_index.get(uni_name)
-        if u:
-            # 顶部详情面板
-            st.markdown('<div class="uni-detail-panel">', unsafe_allow_html=True)
-
-            # 头部
-            tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
-            features = u.get("features", [])
-            feat_tags = " ".join([f'<span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:9999px;font-size:0.75rem;">{html_lib.escape(f)}</span>' for f in features[:5]])
-
-            st.markdown(f"""
-            <div class="uni-detail-header">
-                <div>
-                    <div class="uni-detail-name">{html_lib.escape(u['name'])}</div>
-                    <div style="opacity:0.85;font-size:0.85rem;margin-top:4px;">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))}</div>
-                    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">{feat_tags}</div>
-                </div>
-                <span class="tag {tier_cls}" style="font-size:0.85rem;padding:4px 14px;">{u['tier']}</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # 返回按钮 + AI生成按钮
-            bc1, bc2 = st.columns([1, 1])
-            with bc1:
-                if st.button("← 返回列表", key="uni_back"):
-                    del st.session_state["selected_uni"]
-                    st.rerun()
-
-            # 自动获取或生成AI详情
-            cache_key = f"uni_detail_{uni_name}"
-            if cache_key not in st.session_state:
-                with st.spinner(f"AI正在生成「{uni_name}」的详细介绍..."):
-                    prompt = f"""请详细介绍「{u['name']}」（位于{u['city']}，{u['tier']}，{u.get('type','')}）。
-特色专业：{', '.join(features[:6])}
-请从以下方面介绍：
-1. **学校概况**：历史沿革、办学规模、校园特色
-2. **优势学科**：王牌专业、学科评估结果
-3. **录取情况**：近年分数线大致范围、录取特点
-4. **就业深造**：就业率、知名校友、深造比例
-5. **校园生活**：住宿条件、社团活动、周边环境
-6. **报考建议**：适合什么样的考生"""
-                    messages = [
-                        {"role": "system", "content": "你是一位资深高校招生咨询专家，回答要具体、准确、实用。如果不确定某些数据，请说明是参考信息。"},
-                        {"role": "user", "content": prompt}
-                    ]
-                    st.session_state[cache_key] = call_deepseek(messages)
-
-            st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            return  # 显示详情时不显示列表
-
-    # --- 院校列表 ---
     count_985 = sum(1 for u in universities if u["tier"] == "985")
     count_211 = sum(1 for u in universities if u["tier"] == "211")
     c1, c2, c3 = st.columns(3)
@@ -417,6 +361,7 @@ def page_university():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # 筛选栏
     st.markdown('<div class="panel-white">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1:
@@ -427,6 +372,7 @@ def page_university():
         tier_filter = st.selectbox("层次筛选", ["全部"] + TIERS, key="uni_tier")
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # 筛选逻辑
     filtered = universities
     if search:
         s = search.lower()
@@ -438,18 +384,24 @@ def page_university():
 
     st.markdown(f'<p style="color:#94a3b8;font-size:0.82rem;margin-bottom:12px;">共找到 <strong style="color:#4f46e5">{len(filtered)}</strong> 所院校</p>', unsafe_allow_html=True)
 
+    # 分页
     page_size = 12
     total_pages = max(1, (len(filtered) + page_size - 1) // page_size)
     page_num = st.number_input("页码", min_value=1, max_value=total_pages, value=1, key="uni_page_num")
     start = (page_num - 1) * page_size
     page_data = filtered[start:start + page_size]
 
+    # 渲染卡片行 + 每行下方的expander详情
     for row_start in range(0, len(page_data), 3):
+        row_end = min(row_start + 3, len(page_data))
+        row_items = page_data[row_start:row_end]
+
+        # --- 卡片行 ---
         cols = st.columns(3)
         for j, col in enumerate(cols):
-            idx = row_start + j
-            if idx < len(page_data):
-                u = page_data[idx]
+            if j < len(row_items):
+                u = row_items[j]
+                global_idx = start + row_start + j
                 tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
                 features = u.get("features", [])
                 feat_str = " · ".join(features[:3])
@@ -470,14 +422,57 @@ def page_university():
                         {"<div style='font-size:0.78rem;color:#94a3b8;margin-top:6px;line-height:1.5;'>" + html_lib.escape(desc) + "</div>" if desc else ""}
                     </div>
                     """, unsafe_allow_html=True)
-                    btn_key = f"uni_view_{u['name']}_{start+idx}"
+                    btn_key = f"uni_view_{u['name']}_{global_idx}"
                     if st.button("🤖 AI查看详情", key=btn_key, use_container_width=True):
-                        st.session_state["selected_uni"] = u["name"]
+                        if st.session_state.get("expanded_uni") == u["name"]:
+                            del st.session_state["expanded_uni"]
+                        else:
+                            st.session_state["expanded_uni"] = u["name"]
+                        st.rerun()
+
+        # --- 该行下方的expander详情 ---
+        for u in row_items:
+            is_open = st.session_state.get("expanded_uni") == u["name"]
+            if is_open:
+                with st.expander(f"📋 {u['name']} — AI详情", expanded=True):
+                    # 头部信息
+                    tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
+                    features = u.get("features", [])
+                    st.markdown(f"""
+                    <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:14px 18px;border-radius:10px;margin-bottom:14px;">
+                        <div style="font-size:1.15rem;font-weight:700;">{html_lib.escape(u['name'])}</div>
+                        <div style="opacity:0.85;font-size:0.82rem;margin-top:4px;">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))} · <span class="tag {tier_cls}">{u['tier']}</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # AI详情（缓存）
+                    cache_key = f"uni_detail_{u['name']}"
+                    if cache_key not in st.session_state:
+                        with st.spinner(f"AI正在生成「{u['name']}」的详细介绍..."):
+                            prompt = f"""请详细介绍「{u['name']}」（位于{u['city']}，{u['tier']}，{u.get('type','')}）。
+特色专业：{', '.join(features[:6])}
+请从以下方面介绍：
+1. **学校概况**：历史沿革、办学规模、校园特色
+2. **优势学科**：王牌专业、学科评估结果
+3. **录取情况**：近年分数线大致范围、录取特点
+4. **就业深造**：就业率、知名校友、深造比例
+5. **校园生活**：住宿条件、社团活动、周边环境
+6. **报考建议**：适合什么样的考生"""
+                            messages = [
+                                {"role": "system", "content": "你是一位资深高校招生咨询专家，回答要具体、准确、实用。如果不确定某些数据，请说明是参考信息。"},
+                                {"role": "user", "content": prompt}
+                            ]
+                            st.session_state[cache_key] = call_deepseek(messages)
+                    st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+
+                    if st.button("收起详情", key=f"uni_collapse_{u['name']}"):
+                        if "expanded_uni" in st.session_state:
+                            del st.session_state["expanded_uni"]
                         st.rerun()
 
 
 # ============================================================
-# 专业探索
+# 专业探索（栈式expander展开）
 # ============================================================
 def page_major():
     cat_icons = {"工学":"⚙️","理学":"🔬","医学":"🏥","经济学":"📈","管理学":"📊","法学":"⚖️","文学":"📝","教育学":"🎓","艺术学":"🎨","农学":"🌾"}
@@ -500,9 +495,9 @@ def page_major():
                 with col:
                     if st.button(f"{icon} {cat} ({count})", key=f"cat_{cat}", use_container_width=True):
                         st.session_state["selected_cat"] = cat
-                        # 清除之前的专业选择
-                        if "selected_major" in st.session_state:
-                            del st.session_state["selected_major"]
+                        # 清除之前的专业展开
+                        if "expanded_major" in st.session_state:
+                            del st.session_state["expanded_major"]
                         st.rerun()
 
     # 显示选中门类的专业列表
@@ -516,54 +511,59 @@ def page_major():
         with bc2:
             if st.button("← 返回门类", key="major_back_cat"):
                 del st.session_state["selected_cat"]
-                if "selected_major" in st.session_state:
-                    del st.session_state["selected_major"]
+                if "expanded_major" in st.session_state:
+                    del st.session_state["expanded_major"]
                 st.rerun()
 
-        # 专业列表 - 每行3个按钮
+        # 专业列表 - 每行3个按钮 + 行下方expander
         majors = MAJOR_CATEGORIES[cat]
         for row_start in range(0, len(majors), 3):
+            row_end = min(row_start + 3, len(majors))
+            row_majors = majors[row_start:row_end]
+
+            # --- 专业按钮行 ---
             cols = st.columns(3)
             for j, col in enumerate(cols):
-                midx = row_start + j
-                if midx < len(majors):
-                    major = majors[midx]
+                if j < len(row_majors):
+                    major = row_majors[j]
                     with col:
-                        if st.button(f"📖 {major}", key=f"major_{cat}_{midx}", use_container_width=True):
-                            st.session_state["selected_major"] = major
-                            st.session_state["selected_major_cat"] = cat
+                        if st.button(f"📖 {major}", key=f"major_{cat}_{row_start+j}", use_container_width=True):
+                            if st.session_state.get("expanded_major") == major:
+                                del st.session_state["expanded_major"]
+                            else:
+                                st.session_state["expanded_major"] = major
+                            st.rerun()
+
+            # --- 该行下方的expander详情 ---
+            for major in row_majors:
+                is_open = st.session_state.get("expanded_major") == major
+                if is_open:
+                    with st.expander(f"📋 {major} — AI专业详情", expanded=True):
+                        st.markdown(f"""
+                        <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:14px 18px;border-radius:10px;margin-bottom:14px;">
+                            <div style="font-size:1.15rem;font-weight:700;">{cat_icons.get(cat,'📖')} {major}</div>
+                            <div style="opacity:0.85;font-size:0.82rem;margin-top:4px;">{cat} · 本科专业</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # AI详情（缓存）
+                        cache_key = f"major_ai_{major}"
+                        if cache_key not in st.session_state:
+                            with st.spinner(f"AI正在生成「{major}」的专业详情..."):
+                                prompt = f"请详细介绍「{major}」专业：\n1）主要学什么课程（列举核心课程）\n2）就业方向有哪些（具体岗位和行业）\n3）适合什么样的学生（性格、能力、兴趣）\n4）推荐院校（3-5所，说明推荐理由）\n5）发展前景和薪资水平"
+                                messages = [
+                                    {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性，提供尽可能详细的信息。"},
+                                    {"role": "user", "content": prompt}
+                                ]
+                                st.session_state[cache_key] = call_deepseek(messages)
+                        st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+
+                        if st.button("收起详情", key=f"major_collapse_{major}"):
+                            if "expanded_major" in st.session_state:
+                                del st.session_state["expanded_major"]
                             st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
-
-        # 如果选中了专业，显示AI详情（自动生成，无需再点按钮）
-        if "selected_major" in st.session_state and st.session_state.get("selected_major_cat") == cat:
-            major = st.session_state["selected_major"]
-
-            st.markdown('<div class="panel-white">', unsafe_allow_html=True)
-
-            # 顶部标题栏
-            tc1, tc2 = st.columns([5, 1])
-            with tc1:
-                st.markdown(f"### {cat_icons.get(cat,'📖')} {major}")
-            with tc2:
-                if st.button("← 返回专业列表", key="major_back_detail"):
-                    del st.session_state["selected_major"]
-                    st.rerun()
-
-            # 自动获取或生成AI详情
-            cache_key = f"major_ai_{major}"
-            if cache_key not in st.session_state:
-                with st.spinner(f"AI正在生成「{major}」的专业详情..."):
-                    prompt = f"请详细介绍「{major}」专业：\n1）主要学什么课程（列举核心课程）\n2）就业方向有哪些（具体岗位和行业）\n3）适合什么样的学生（性格、能力、兴趣）\n4）推荐院校（3-5所，说明推荐理由）\n5）发展前景和薪资水平"
-                    messages = [
-                        {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性，提供尽可能详细的信息。"},
-                        {"role": "user", "content": prompt}
-                    ]
-                    st.session_state[cache_key] = call_deepseek(messages)
-
-            st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ============================================================
