@@ -26,6 +26,9 @@ def load_universities():
 
 universities = load_universities()
 
+# 建立名称→数据索引，方便查询
+uni_index = {u["name"]: u for u in universities}
+
 MAJOR_CATEGORIES = {
     "工学": ["计算机科学与技术", "软件工程", "人工智能", "电子信息工程", "通信工程", "自动化", "机械工程", "土木工程", "建筑学", "材料科学与工程", "化学工程", "电气工程", "航空航天工程", "生物工程", "环境工程"],
     "理学": ["数学", "物理学", "化学", "生物科学", "天文学", "地理科学", "地质学", "统计学", "心理学", "大气科学"],
@@ -64,103 +67,35 @@ def call_deepseek(messages, api_key=None):
         return f"API调用失败: {str(e)}"
 
 # ============================================================
-# 自定义CSS — 还原HTML版设计
+# 自定义CSS
 # ============================================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 
-/* === 全局重置 === */
 html, body, [class*="css"] {
     font-family: 'Noto Sans SC', system-ui, sans-serif;
 }
-.stApp {
-    background: #f8fafc;
-}
+.stApp { background: #f8fafc; }
 header[data-testid="stHeader"] { display: none; }
 div[data-testid="stToolbar"] { display: none; }
 section[data-testid="stSidebar"] { display: none; }
 div[data-testid="stSidebarUserContent"] { display: none; }
 div[data-testid="collapsedControl"] { display: none; }
-
-/* === 去掉Streamlit默认padding === */
 .main .block-container {
     padding-top: 0;
     padding-bottom: 1rem;
     max-width: 1100px;
 }
-
-/* === 隐藏deploy按钮 === */
 button[data-testid="stDeployButton"] { display: none; }
 #MainMenu { display: none; }
 footer { display: none; }
+[data-testid="stAppViewContainer"] > section:first-child { display: none; }
 
-/* === 隐藏stApp默认背景 === */
-[data-testid="stAppViewContainer"] > section:first-child {
-    display: none;
-}
-</style>
-""", unsafe_allow_html=True)
+/* === 院校详情按钮样式覆盖 === */
+div[data-testid="stVerticalBlock"] > div { gap: 0.5rem; }
 
-# ============================================================
-# 顶部导航栏（HTML注入）
-# ============================================================
-st.markdown(f"""
-<style>
-.nav-bar {{
-    background: linear-gradient(135deg, #312e81 0%, #4f46e5 40%, #0ea5e9 100%);
-    padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-radius: 0 0 0 0;
-    margin: -1rem -1rem 0 -1rem;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-}}
-.nav-title {{
-    color: white;
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}}
-.nav-badge {{
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
-    padding: 4px 14px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 500;
-}}
-</style>
-
-<div class="nav-bar">
-    <div class="nav-title">
-        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke:white"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-        高考志愿填报助手
-    </div>
-    <div class="nav-badge">收录 {len(universities)} 所高校 · AI驱动</div>
-</div>
-""", unsafe_allow_html=True)
-
-# ============================================================
-# 页面样式
-# ============================================================
-st.markdown("""
-<style>
-/* === 卡片样式 === */
-div[data-testid="stVerticalBlock"] > div {
-    gap: 0.5rem;
-}
-
-/* === Tab样式 === */
+/* === Tab === */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0;
     border-bottom: 2px solid #e2e8f0;
@@ -177,24 +112,17 @@ div[data-testid="stVerticalBlock"] > div {
     border-bottom: 3px solid transparent;
     margin-bottom: -2px;
 }
-.stTabs [data-baseweb="tab"]:hover {
-    color: #4f46e5;
-    background: none;
-}
+.stTabs [data-baseweb="tab"]:hover { color: #4f46e5; background: none; }
 .stTabs [aria-selected="true"] {
     color: #4f46e5 !important;
     font-weight: 600;
     border-bottom: 3px solid #4f46e5 !important;
     background: none !important;
 }
-.stTabs [data-baseweb="tab-highlight"] {
-    display: none;
-}
-.stTabs [data-baseweb="tab-border"] {
-    display: none;
-}
+.stTabs [data-baseweb="tab-highlight"] { display: none; }
+.stTabs [data-baseweb="tab-border"] { display: none; }
 
-/* === 白色面板 === */
+/* === 面板 === */
 .panel-white {
     background: white;
     border-radius: 16px;
@@ -203,27 +131,18 @@ div[data-testid="stVerticalBlock"] > div {
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.panel-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 4px;
-}
-.panel-desc {
-    font-size: 0.85rem;
-    color: #94a3b8;
-    margin-bottom: 20px;
-}
+.panel-title { font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.panel-desc { font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px; }
 
-/* === 输入框统一 === */
-.stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+/* === 输入框 === */
+.stTextInput input, .stNumberInput input, .stTextArea textarea {
     border-radius: 8px !important;
     border: 1px solid #d1d5db !important;
     font-size: 0.9rem !important;
 }
 .stTextInput input:focus, .stNumberInput input:focus {
     border-color: #4f46e5 !important;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(79,70,229,0.1) !important;
 }
 
 /* === 主按钮 === */
@@ -242,201 +161,128 @@ div[data-testid="stVerticalBlock"] > div {
 .stButton > button[data-testid="baseButton-primary"]:hover {
     background: #4338ca !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
 }
 
 /* === 统计卡片 === */
 .stat-card {
     background: linear-gradient(135deg, #312e81 0%, #4f46e5 50%, #0ea5e9 100%);
-    color: white;
-    padding: 24px 16px;
-    border-radius: 14px;
-    text-align: center;
+    color: white; padding: 24px 16px; border-radius: 14px; text-align: center;
     box-shadow: 0 4px 15px rgba(79,70,229,0.2);
 }
-.stat-number {
-    font-size: 2.2rem;
-    font-weight: 800;
-    letter-spacing: -1px;
-}
-.stat-label {
-    font-size: 0.85rem;
-    opacity: 0.85;
-    margin-top: 4px;
-}
+.stat-number { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; }
+.stat-label { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
 
 /* === 院校卡片 === */
 .uni-card {
-    background: white;
-    border: 1px solid #f1f5f9;
-    border-radius: 14px;
-    padding: 18px;
-    transition: all 0.2s ease;
-    cursor: pointer;
+    background: white; border: 1px solid #f1f5f9; border-radius: 14px;
+    padding: 18px; transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .uni-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-    border-color: #c7d2fe;
+    transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); border-color: #c7d2fe;
 }
-.uni-name {
-    font-weight: 700;
-    font-size: 1rem;
-    color: #1e293b;
-    margin-bottom: 6px;
-}
-.uni-meta {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin-bottom: 8px;
-}
-.uni-features {
-    font-size: 0.78rem;
-    color: #94a3b8;
-}
+.uni-name { font-weight: 700; font-size: 1rem; color: #1e293b; margin-bottom: 6px; }
+.uni-meta { font-size: 0.8rem; color: #64748b; margin-bottom: 8px; }
+.uni-features { font-size: 0.78rem; color: #94a3b8; }
 
 /* === 标签 === */
-.tag {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 9999px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-}
-.tag-985 { background: #fef3c7; color: #92400e; }
-.tag-211 { background: #dbeafe; color: #1e40af; }
-.tag-double { background: #d1fae5; color: #065f46; }
-.tag-type { background: #f1f5f9; color: #475569; }
+.tag { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:0.72rem; font-weight:600; letter-spacing:0.3px; }
+.tag-985 { background:#fef3c7; color:#92400e; }
+.tag-211 { background:#dbeafe; color:#1e40af; }
+.tag-double { background:#d1fae5; color:#065f46; }
+.tag-type { background:#f1f5f9; color:#475569; }
 
-/* === 冲稳保提示卡 === */
-.tip-card {
-    border-radius: 14px;
-    padding: 20px;
-    border: 1px solid;
-}
-.tip-chong {
-    background: linear-gradient(135deg, #fef2f2, #fff7ed);
-    border-color: #fecaca;
-}
-.tip-wen {
-    background: linear-gradient(135deg, #eff6ff, #eef2ff);
-    border-color: #bfdbfe;
-}
-.tip-bao {
-    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-    border-color: #bbf7d0;
-}
-.tip-title-chong { color: #dc2626; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-.tip-title-wen { color: #2563eb; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-.tip-title-bao { color: #16a34a; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-.tip-text { color: #64748b; font-size: 0.8rem; line-height: 1.6; }
+/* === 冲稳保 === */
+.tip-card { border-radius:14px; padding:20px; border:1px solid; }
+.tip-chong { background:linear-gradient(135deg,#fef2f2,#fff7ed); border-color:#fecaca; }
+.tip-wen { background:linear-gradient(135deg,#eff6ff,#eef2ff); border-color:#bfdbfe; }
+.tip-bao { background:linear-gradient(135deg,#f0fdf4,#ecfdf5); border-color:#bbf7d0; }
+.tip-title-chong { color:#dc2626; font-weight:700; font-size:0.9rem; margin-bottom:8px; }
+.tip-title-wen { color:#2563eb; font-weight:700; font-size:0.9rem; margin-bottom:8px; }
+.tip-title-bao { color:#16a34a; font-weight:700; font-size:0.9rem; margin-bottom:8px; }
+.tip-text { color:#64748b; font-size:0.8rem; line-height:1.6; }
 
 /* === 聊天气泡 === */
 .chat-user {
-    background: #4f46e5;
-    color: white;
-    padding: 12px 18px;
-    border-radius: 18px 18px 4px 18px;
-    margin: 8px 0;
-    max-width: 80%;
-    margin-left: auto;
-    font-size: 0.9rem;
-    line-height: 1.6;
+    background:#4f46e5; color:white; padding:12px 18px;
+    border-radius:18px 18px 4px 18px; margin:8px 0; max-width:80%; margin-left:auto;
+    font-size:0.9rem; line-height:1.6;
 }
 .chat-ai {
-    background: #f1f5f9;
-    color: #1e293b;
-    padding: 12px 18px;
-    border-radius: 18px 18px 18px 4px;
-    margin: 8px 0;
-    max-width: 85%;
-    font-size: 0.9rem;
-    line-height: 1.6;
+    background:#f1f5f9; color:#1e293b; padding:12px 18px;
+    border-radius:18px 18px 18px 4px; margin:8px 0; max-width:85%;
+    font-size:0.9rem; line-height:1.6;
 }
-.chat-ai p { margin: 0.4em 0; }
-.chat-ai h1,.chat-ai h2,.chat-ai h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
-.chat-ai ul, .chat-ai ol { margin: 0.4em 0; padding-left: 1.4em; }
-.chat-ai code { background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
-.chat-ai strong { font-weight: 600; }
+.chat-ai p { margin:0.4em 0; }
+.chat-ai h1,.chat-ai h2,.chat-ai h3 { font-weight:600; margin:0.6em 0 0.3em; }
+.chat-ai ul,.chat-ai ol { margin:0.4em 0; padding-left:1.4em; }
+.chat-ai code { background:rgba(0,0,0,0.06); padding:0.1em 0.3em; border-radius:3px; font-size:0.9em; }
+.chat-ai strong { font-weight:600; }
 
-/* === 专业门类卡片 === */
-.major-cat {
-    background: white;
-    border: 1px solid #f1f5f9;
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
-    transition: all 0.2s;
-    cursor: pointer;
-}
-.major-cat:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    border-color: #c7d2fe;
-}
-.major-cat-icon {
-    font-size: 1.8rem;
-    margin-bottom: 6px;
-}
-.major-cat-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #1e293b;
-}
-.major-cat-count {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    margin-top: 2px;
-}
+/* === 推荐结果 === */
+.recommend-result h1,.recommend-result h2,.recommend-result h3 { font-weight:700; color:#1e293b; margin-top:1em; }
+.recommend-result h3 { font-size:1.05rem; border-left:3px solid #4f46e5; padding-left:10px; }
+.recommend-result ul { padding-left:1.4em; }
+.recommend-result li { margin:0.3em 0; font-size:0.9rem; color:#475569; }
+.recommend-result strong { color:#1e293b; }
+.recommend-result p { font-size:0.9rem; color:#475569; line-height:1.7; }
 
-/* === 常见问题按钮 === */
-.quick-btn {
-    background: #eef2ff;
-    color: #4338ca;
-    border: none;
-    border-radius: 9999px;
-    padding: 6px 14px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: inline-block;
-    margin: 3px;
+/* === 院校详情面板 === */
+.uni-detail-panel {
+    background: white; border-radius: 16px; border: 1px solid #e2e8f0;
+    padding: 24px; margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
 }
-.quick-btn:hover { background: #c7d2fe; }
-
-/* === 推荐结果Markdown === */
-.recommend-result h1, .recommend-result h2, .recommend-result h3 {
-    font-weight: 700;
-    color: #1e293b;
-    margin-top: 1em;
+.uni-detail-header {
+    background: linear-gradient(135deg, #312e81 0%, #4f46e5 40%, #0ea5e9 100%);
+    color: white; padding: 16px 20px; border-radius: 12px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
 }
-.recommend-result h3 { font-size: 1.05rem; border-left: 3px solid #4f46e5; padding-left: 10px; }
-.recommend-result ul { padding-left: 1.4em; }
-.recommend-result li { margin: 0.3em 0; font-size: 0.9rem; color: #475569; }
-.recommend-result strong { color: #1e293b; }
-.recommend-result p { font-size: 0.9rem; color: #475569; line-height: 1.7; }
+.uni-detail-name { font-size: 1.3rem; font-weight: 700; }
+.uni-detail-tags { display: flex; gap: 6px; margin-top: 6px; }
 
 /* === 页脚 === */
 .app-footer {
-    text-align: center;
-    padding: 20px 0 8px;
-    color: #94a3b8;
-    font-size: 0.78rem;
-    border-top: 1px solid #f1f5f9;
-    margin-top: 2rem;
+    text-align:center; padding:20px 0 8px; color:#94a3b8; font-size:0.78rem;
+    border-top:1px solid #f1f5f9; margin-top:2rem;
+}
+
+/* === 查看详情按钮 === */
+.stButton > button[data-testid="baseButton-secondary"] {
+    border-radius: 8px !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 页面函数
+# 顶部导航
+# ============================================================
+st.markdown(f"""
+<style>
+.nav-bar {{
+    background: linear-gradient(135deg, #312e81 0%, #4f46e5 40%, #0ea5e9 100%);
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+    margin: -1rem -1rem 0 -1rem; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}}
+.nav-title {{ color:white; font-size:1.15rem; font-weight:700; letter-spacing:0.5px; display:flex; align-items:center; gap:8px; }}
+.nav-badge {{ background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.2); color:white; padding:4px 14px; border-radius:8px; font-size:0.8rem; font-weight:500; }}
+</style>
+<div class="nav-bar">
+    <div class="nav-title">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke:white"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        高考志愿填报助手
+    </div>
+    <div class="nav-badge">收录 {len(universities)} 所高校 · AI驱动</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# 智能推荐
 # ============================================================
 def page_recommend():
-    """智能推荐"""
     st.markdown('<div class="panel-white">', unsafe_allow_html=True)
     st.markdown('<div class="panel-title">🎯 智能志愿推荐</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel-desc">填写你的高考信息，AI将为你生成冲/稳/保院校方案</div>', unsafe_allow_html=True)
@@ -489,35 +335,76 @@ def page_recommend():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 冲稳保提示
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("""
-        <div class="tip-card tip-chong">
-            <div class="tip-title-chong">🔴 冲一冲</div>
-            <div class="tip-text">选择历年录取位次略高于自己位次的院校，有一定风险但值得尝试，建议占志愿的20-30%。</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="tip-card tip-chong"><div class="tip-title-chong">🔴 冲一冲</div><div class="tip-text">选择历年录取位次略高于自己位次的院校，有一定风险但值得尝试，建议占志愿的20-30%。</div></div>', unsafe_allow_html=True)
     with c2:
-        st.markdown("""
-        <div class="tip-card tip-wen">
-            <div class="tip-title-wen">🔵 稳一稳</div>
-            <div class="tip-text">选择与自己位次相当的院校，录取概率较大，是志愿的核心部分，建议占40-50%。</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="tip-card tip-wen"><div class="tip-title-wen">🔵 稳一稳</div><div class="tip-text">选择与自己位次相当的院校，录取概率较大，是志愿的核心部分，建议占40-50%。</div></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown("""
-        <div class="tip-card tip-bao">
-            <div class="tip-title-bao">🟢 保一保</div>
-            <div class="tip-text">选择历年录取位次明显低于自己位次的院校，确保有学上，建议占20-30%。</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="tip-card tip-bao"><div class="tip-title-bao">🟢 保一保</div><div class="tip-text">选择历年录取位次明显低于自己位次的院校，确保有学上，建议占20-30%。</div></div>', unsafe_allow_html=True)
 
 
+# ============================================================
+# 院校查询
+# ============================================================
 def page_university():
-    """院校查询"""
-    # 统计卡片
+    # --- 院校详情弹窗 ---
+    # 如果选中了某所院校，先在最顶部显示详情面板
+    if "selected_uni" in st.session_state:
+        uni_name = st.session_state["selected_uni"]
+        u = uni_index.get(uni_name)
+        if u:
+            # 顶部详情面板
+            st.markdown('<div class="uni-detail-panel">', unsafe_allow_html=True)
+
+            # 头部
+            tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
+            features = u.get("features", [])
+            feat_tags = " ".join([f'<span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:9999px;font-size:0.75rem;">{html_lib.escape(f)}</span>' for f in features[:5]])
+
+            st.markdown(f"""
+            <div class="uni-detail-header">
+                <div>
+                    <div class="uni-detail-name">{html_lib.escape(u['name'])}</div>
+                    <div style="opacity:0.85;font-size:0.85rem;margin-top:4px;">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))}</div>
+                    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">{feat_tags}</div>
+                </div>
+                <span class="tag {tier_cls}" style="font-size:0.85rem;padding:4px 14px;">{u['tier']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 返回按钮 + AI生成按钮
+            bc1, bc2 = st.columns([1, 1])
+            with bc1:
+                if st.button("← 返回列表", key="uni_back"):
+                    del st.session_state["selected_uni"]
+                    st.rerun()
+
+            # 自动获取或生成AI详情
+            cache_key = f"uni_detail_{uni_name}"
+            if cache_key not in st.session_state:
+                with st.spinner(f"AI正在生成「{uni_name}」的详细介绍..."):
+                    prompt = f"""请详细介绍「{u['name']}」（位于{u['city']}，{u['tier']}，{u.get('type','')}）。
+特色专业：{', '.join(features[:6])}
+请从以下方面介绍：
+1. **学校概况**：历史沿革、办学规模、校园特色
+2. **优势学科**：王牌专业、学科评估结果
+3. **录取情况**：近年分数线大致范围、录取特点
+4. **就业深造**：就业率、知名校友、深造比例
+5. **校园生活**：住宿条件、社团活动、周边环境
+6. **报考建议**：适合什么样的考生"""
+                    messages = [
+                        {"role": "system", "content": "你是一位资深高校招生咨询专家，回答要具体、准确、实用。如果不确定某些数据，请说明是参考信息。"},
+                        {"role": "user", "content": prompt}
+                    ]
+                    st.session_state[cache_key] = call_deepseek(messages)
+
+            st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            return  # 显示详情时不显示列表
+
+    # --- 院校列表 ---
     count_985 = sum(1 for u in universities if u["tier"] == "985")
     count_211 = sum(1 for u in universities if u["tier"] == "211")
     c1, c2, c3 = st.columns(3)
@@ -540,7 +427,6 @@ def page_university():
         tier_filter = st.selectbox("层次筛选", ["全部"] + TIERS, key="uni_tier")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 筛选
     filtered = universities
     if search:
         s = search.lower()
@@ -552,14 +438,12 @@ def page_university():
 
     st.markdown(f'<p style="color:#94a3b8;font-size:0.82rem;margin-bottom:12px;">共找到 <strong style="color:#4f46e5">{len(filtered)}</strong> 所院校</p>', unsafe_allow_html=True)
 
-    # 分页
     page_size = 12
     total_pages = max(1, (len(filtered) + page_size - 1) // page_size)
     page_num = st.number_input("页码", min_value=1, max_value=total_pages, value=1, key="uni_page_num")
     start = (page_num - 1) * page_size
     page_data = filtered[start:start + page_size]
 
-    # 3列卡片
     for row_start in range(0, len(page_data), 3):
         cols = st.columns(3)
         for j, col in enumerate(cols):
@@ -572,30 +456,36 @@ def page_university():
                 if len(features) > 3:
                     feat_str += f" +{len(features)-3}"
                 desc = u.get("desc", "")
-                if len(desc) > 60:
-                    desc = desc[:60] + "..."
+                if len(desc) > 50:
+                    desc = desc[:50] + "..."
                 with col:
                     st.markdown(f"""
                     <div class="uni-card">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                            <div class="uni-name">{u['name']}</div>
+                            <div class="uni-name">{html_lib.escape(u['name'])}</div>
                             <span class="tag {tier_cls}">{u['tier']}</span>
                         </div>
-                        <div class="uni-meta">{u['city']} · {u.get('type','')}</div>
-                        <div class="uni-features">{feat_str}</div>
+                        <div class="uni-meta">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))}</div>
+                        <div class="uni-features">{html_lib.escape(feat_str)}</div>
                         {"<div style='font-size:0.78rem;color:#94a3b8;margin-top:6px;line-height:1.5;'>" + html_lib.escape(desc) + "</div>" if desc else ""}
                     </div>
                     """, unsafe_allow_html=True)
+                    btn_key = f"uni_view_{u['name']}_{start+idx}"
+                    if st.button("🤖 AI查看详情", key=btn_key, use_container_width=True):
+                        st.session_state["selected_uni"] = u["name"]
+                        st.rerun()
 
 
+# ============================================================
+# 专业探索
+# ============================================================
 def page_major():
-    """专业探索"""
+    cat_icons = {"工学":"⚙️","理学":"🔬","医学":"🏥","经济学":"📈","管理学":"📊","法学":"⚖️","文学":"📝","教育学":"🎓","艺术学":"🎨","农学":"🌾"}
+
     st.markdown('<div class="panel-white">', unsafe_allow_html=True)
     st.markdown('<div class="panel-title">📚 专业探索</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-desc">按学科门类浏览专业，了解专业详情和就业方向</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-desc">按学科门类浏览专业，点击即可获取AI生成的专业详情</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-    cat_icons = {"工学":"⚙️","理学":"🔬","医学":"🏥","经济学":"📈","管理学":"📊","法学":"⚖️","文学":"📝","教育学":"🎓","艺术学":"🎨","农学":"🌾"}
 
     # 门类卡片
     for row_start in range(0, len(MAJOR_CATEGORIES), 4):
@@ -610,60 +500,81 @@ def page_major():
                 with col:
                     if st.button(f"{icon} {cat} ({count})", key=f"cat_{cat}", use_container_width=True):
                         st.session_state["selected_cat"] = cat
+                        # 清除之前的专业选择
+                        if "selected_major" in st.session_state:
+                            del st.session_state["selected_major"]
                         st.rerun()
 
-    # 显示选中门类的专业
+    # 显示选中门类的专业列表
     if "selected_cat" in st.session_state:
         cat = st.session_state["selected_cat"]
-        st.markdown(f'<div class="panel-white">', unsafe_allow_html=True)
-        c1, c2 = st.columns([5, 1])
-        with c1:
+        st.markdown('<div class="panel-white">', unsafe_allow_html=True)
+
+        bc1, bc2 = st.columns([5, 1])
+        with bc1:
             st.markdown(f"### {cat_icons.get(cat,'📖')} {cat}")
-        with c2:
-            if st.button("返回", key="major_back"):
+        with bc2:
+            if st.button("← 返回门类", key="major_back_cat"):
                 del st.session_state["selected_cat"]
+                if "selected_major" in st.session_state:
+                    del st.session_state["selected_major"]
                 st.rerun()
 
+        # 专业列表 - 每行3个按钮
         majors = MAJOR_CATEGORIES[cat]
         for row_start in range(0, len(majors), 3):
             cols = st.columns(3)
             for j, col in enumerate(cols):
-                idx = row_start + j
-                if idx < len(majors):
-                    major = majors[idx]
+                midx = row_start + j
+                if midx < len(majors):
+                    major = majors[midx]
                     with col:
-                        if st.button(f"📖 {major}", key=f"major_{cat}_{idx}", use_container_width=True):
+                        if st.button(f"📖 {major}", key=f"major_{cat}_{midx}", use_container_width=True):
                             st.session_state["selected_major"] = major
                             st.session_state["selected_major_cat"] = cat
-
-        # AI解读
-        if "selected_major" in st.session_state and st.session_state.get("selected_major_cat") == cat:
-            major = st.session_state["selected_major"]
-            st.markdown("---")
-            if st.button(f"🤖 AI解读「{major}」", key=f"ai_major_{major}", type="primary"):
-                with st.spinner("AI正在解读..."):
-                    prompt = f"请详细介绍「{major}」专业：1）主要学什么课程 2）就业方向有哪些 3）适合什么样的学生 4）推荐院校（3-5所）。"
-                    messages = [
-                        {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性。"},
-                        {"role": "user", "content": prompt}
-                    ]
-                    resp = call_deepseek(messages)
-                    st.session_state[f"major_ai_{major}"] = resp
-            if f"major_ai_{major}" in st.session_state:
-                st.markdown(f'<div class="recommend-result">{st.session_state[f"major_ai_{major}"]}</div>', unsafe_allow_html=True)
+                            st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # 如果选中了专业，显示AI详情（自动生成，无需再点按钮）
+        if "selected_major" in st.session_state and st.session_state.get("selected_major_cat") == cat:
+            major = st.session_state["selected_major"]
 
+            st.markdown('<div class="panel-white">', unsafe_allow_html=True)
+
+            # 顶部标题栏
+            tc1, tc2 = st.columns([5, 1])
+            with tc1:
+                st.markdown(f"### {cat_icons.get(cat,'📖')} {major}")
+            with tc2:
+                if st.button("← 返回专业列表", key="major_back_detail"):
+                    del st.session_state["selected_major"]
+                    st.rerun()
+
+            # 自动获取或生成AI详情
+            cache_key = f"major_ai_{major}"
+            if cache_key not in st.session_state:
+                with st.spinner(f"AI正在生成「{major}」的专业详情..."):
+                    prompt = f"请详细介绍「{major}」专业：\n1）主要学什么课程（列举核心课程）\n2）就业方向有哪些（具体岗位和行业）\n3）适合什么样的学生（性格、能力、兴趣）\n4）推荐院校（3-5所，说明推荐理由）\n5）发展前景和薪资水平"
+                    messages = [
+                        {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性，提供尽可能详细的信息。"},
+                        {"role": "user", "content": prompt}
+                    ]
+                    st.session_state[cache_key] = call_deepseek(messages)
+
+            st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ============================================================
+# AI咨询
+# ============================================================
 def page_ai_chat():
-    """AI咨询"""
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
-    # 聊天容器
     st.markdown('<div class="panel-white" style="min-height:500px;">', unsafe_allow_html=True)
 
-    # 头部
     c1, c2 = st.columns([5, 1])
     with c1:
         st.markdown('<div class="panel-title">💬 AI志愿顾问</div>', unsafe_allow_html=True)
@@ -674,13 +585,7 @@ def page_ai_chat():
             st.rerun()
 
     # 快捷问题
-    quick_qs = [
-        "计算机专业怎么选学校？",
-        "文科生适合什么专业？",
-        "平行志愿怎么填？",
-        "哪些专业前景好？",
-        "985和211的区别？"
-    ]
+    quick_qs = ["计算机专业怎么选学校？", "文科生适合什么专业？", "平行志愿怎么填？", "哪些专业前景好？", "985和211的区别？"]
     quick_cols = st.columns(len(quick_qs))
     for i, q in enumerate(quick_qs):
         with quick_cols[i]:
@@ -740,6 +645,7 @@ def page_ai_chat():
         st.session_state.chat_history.append({"role": "assistant", "content": response})
         st.rerun()
 
+
 # ============================================================
 # 主程序 — Tab导航
 # ============================================================
@@ -754,7 +660,6 @@ with tab3:
 with tab4:
     page_ai_chat()
 
-# 页脚
 st.markdown(f"""
 <div class="app-footer">
     收录 {len(universities)} 所高校 · AI驱动 · 数据仅供参考
