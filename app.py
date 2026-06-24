@@ -67,6 +67,90 @@ def call_deepseek(messages, api_key=None):
         return f"API调用失败: {str(e)}"
 
 # ============================================================
+# 弹窗：院校详情
+# ============================================================
+@st.dialog("院校详情", width="large")
+def show_uni_detail(uni_name):
+    u = uni_index.get(uni_name)
+    if not u:
+        st.write("未找到该院校信息")
+        return
+
+    tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
+    features = u.get("features", [])
+
+    # 渐变头部
+    feat_tags = " ".join([f'<span style="background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:9999px;font-size:0.75rem;">{html_lib.escape(f)}</span>' for f in features[:5]])
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:18px 22px;border-radius:12px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+                <div style="font-size:1.3rem;font-weight:700;">{html_lib.escape(u['name'])}</div>
+                <div style="opacity:0.85;font-size:0.85rem;margin-top:4px;">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))}</div>
+            </div>
+            <span class="tag {tier_cls}" style="font-size:0.85rem;padding:4px 14px;">{u['tier']}</span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">{feat_tags}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # AI详情（缓存）
+    cache_key = f"uni_detail_{uni_name}"
+    if cache_key not in st.session_state:
+        with st.spinner(f"AI正在生成「{uni_name}」的详细介绍..."):
+            prompt = f"""请详细介绍「{u['name']}」（位于{u['city']}，{u['tier']}，{u.get('type','')}）。
+特色专业：{', '.join(features[:6])}
+请从以下方面介绍：
+1. **学校概况**：历史沿革、办学规模、校园特色
+2. **优势学科**：王牌专业、学科评估结果
+3. **录取情况**：近年分数线大致范围、录取特点
+4. **就业深造**：就业率、知名校友、深造比例
+5. **校园生活**：住宿条件、社团活动、周边环境
+6. **报考建议**：适合什么样的考生"""
+            messages = [
+                {"role": "system", "content": "你是一位资深高校招生咨询专家，回答要具体、准确、实用。如果不确定某些数据，请说明是参考信息。"},
+                {"role": "user", "content": prompt}
+            ]
+            st.session_state[cache_key] = call_deepseek(messages)
+
+    st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    if st.button("关闭", key=f"close_uni_{uni_name}", use_container_width=True):
+        st.rerun()
+
+# ============================================================
+# 弹窗：专业详情
+# ============================================================
+@st.dialog("专业详情", width="large")
+def show_major_detail(major_name, cat_name):
+    cat_icons = {"工学":"⚙️","理学":"🔬","医学":"🏥","经济学":"📈","管理学":"📊","法学":"⚖️","文学":"📝","教育学":"🎓","艺术学":"🎨","农学":"🌾"}
+    icon = cat_icons.get(cat_name, "📖")
+
+    # 渐变头部
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:18px 22px;border-radius:12px;margin-bottom:16px;">
+        <div style="font-size:1.3rem;font-weight:700;">{icon} {html_lib.escape(major_name)}</div>
+        <div style="opacity:0.85;font-size:0.85rem;margin-top:4px;">{html_lib.escape(cat_name)} · 本科专业</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # AI详情（缓存）
+    cache_key = f"major_ai_{major_name}"
+    if cache_key not in st.session_state:
+        with st.spinner(f"AI正在生成「{major_name}」的专业详情..."):
+            prompt = f"请详细介绍「{major_name}」专业：\n1）主要学什么课程（列举核心课程）\n2）就业方向有哪些（具体岗位和行业）\n3）适合什么样的学生（性格、能力、兴趣）\n4）推荐院校（3-5所，说明推荐理由）\n5）发展前景和薪资水平"
+            messages = [
+                {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性，提供尽可能详细的信息。"},
+                {"role": "user", "content": prompt}
+            ]
+            st.session_state[cache_key] = call_deepseek(messages)
+
+    st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    if st.button("关闭", key=f"close_major_{major_name}", use_container_width=True):
+        st.rerun()
+
+# ============================================================
 # 自定义CSS
 # ============================================================
 st.markdown("""
@@ -253,6 +337,17 @@ div[data-testid="stVerticalBlock"] > div { gap: 0.5rem; }
     font-size: 0.82rem !important;
     font-weight: 500 !important;
 }
+
+/* === 弹窗样式 === */
+div[role="dialog"] {
+    border-radius: 16px !important;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3) !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+div[role="dialog"] > div {
+    padding: 1.5rem !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -346,7 +441,7 @@ def page_recommend():
 
 
 # ============================================================
-# 院校查询（栈式expander展开）
+# 院校查询（弹窗查看详情）
 # ============================================================
 def page_university():
     count_985 = sum(1 for u in universities if u["tier"] == "985")
@@ -424,62 +519,18 @@ def page_university():
                     """, unsafe_allow_html=True)
                     btn_key = f"uni_view_{u['name']}_{global_idx}"
                     if st.button("🤖 AI查看详情", key=btn_key, use_container_width=True):
-                        if st.session_state.get("expanded_uni") == u["name"]:
-                            del st.session_state["expanded_uni"]
-                        else:
-                            st.session_state["expanded_uni"] = u["name"]
-                        st.rerun()
-
-        # --- 该行下方的expander详情 ---
-        for u in row_items:
-            is_open = st.session_state.get("expanded_uni") == u["name"]
-            if is_open:
-                with st.expander(f"📋 {u['name']} — AI详情", expanded=True):
-                    # 头部信息
-                    tier_cls = "tag-985" if u["tier"] == "985" else "tag-211" if u["tier"] == "211" else "tag-double" if u["tier"] == "双一流" else "tag-type"
-                    features = u.get("features", [])
-                    st.markdown(f"""
-                    <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:14px 18px;border-radius:10px;margin-bottom:14px;">
-                        <div style="font-size:1.15rem;font-weight:700;">{html_lib.escape(u['name'])}</div>
-                        <div style="opacity:0.85;font-size:0.82rem;margin-top:4px;">{html_lib.escape(u['city'])} · {html_lib.escape(u.get('type',''))} · <span class="tag {tier_cls}">{u['tier']}</span></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    # AI详情（缓存）
-                    cache_key = f"uni_detail_{u['name']}"
-                    if cache_key not in st.session_state:
-                        with st.spinner(f"AI正在生成「{u['name']}」的详细介绍..."):
-                            prompt = f"""请详细介绍「{u['name']}」（位于{u['city']}，{u['tier']}，{u.get('type','')}）。
-特色专业：{', '.join(features[:6])}
-请从以下方面介绍：
-1. **学校概况**：历史沿革、办学规模、校园特色
-2. **优势学科**：王牌专业、学科评估结果
-3. **录取情况**：近年分数线大致范围、录取特点
-4. **就业深造**：就业率、知名校友、深造比例
-5. **校园生活**：住宿条件、社团活动、周边环境
-6. **报考建议**：适合什么样的考生"""
-                            messages = [
-                                {"role": "system", "content": "你是一位资深高校招生咨询专家，回答要具体、准确、实用。如果不确定某些数据，请说明是参考信息。"},
-                                {"role": "user", "content": prompt}
-                            ]
-                            st.session_state[cache_key] = call_deepseek(messages)
-                    st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
-
-                    if st.button("收起详情", key=f"uni_collapse_{u['name']}"):
-                        if "expanded_uni" in st.session_state:
-                            del st.session_state["expanded_uni"]
-                        st.rerun()
+                        show_uni_detail(u["name"])
 
 
 # ============================================================
-# 专业探索（栈式expander展开）
+# 专业探索（弹窗查看详情）
 # ============================================================
 def page_major():
     cat_icons = {"工学":"⚙️","理学":"🔬","医学":"🏥","经济学":"📈","管理学":"📊","法学":"⚖️","文学":"📝","教育学":"🎓","艺术学":"🎨","农学":"🌾"}
 
     st.markdown('<div class="panel-white">', unsafe_allow_html=True)
     st.markdown('<div class="panel-title">📚 专业探索</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-desc">按学科门类浏览专业，点击即可获取AI生成的专业详情</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-desc">按学科门类浏览专业，点击即可弹窗查看AI生成的专业详情</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     # 门类卡片
@@ -495,9 +546,6 @@ def page_major():
                 with col:
                     if st.button(f"{icon} {cat} ({count})", key=f"cat_{cat}", use_container_width=True):
                         st.session_state["selected_cat"] = cat
-                        # 清除之前的专业展开
-                        if "expanded_major" in st.session_state:
-                            del st.session_state["expanded_major"]
                         st.rerun()
 
     # 显示选中门类的专业列表
@@ -511,11 +559,9 @@ def page_major():
         with bc2:
             if st.button("← 返回门类", key="major_back_cat"):
                 del st.session_state["selected_cat"]
-                if "expanded_major" in st.session_state:
-                    del st.session_state["expanded_major"]
                 st.rerun()
 
-        # 专业列表 - 每行3个按钮 + 行下方expander
+        # 专业列表 - 每行3个按钮，点击弹出详情弹窗
         majors = MAJOR_CATEGORIES[cat]
         for row_start in range(0, len(majors), 3):
             row_end = min(row_start + 3, len(majors))
@@ -528,40 +574,7 @@ def page_major():
                     major = row_majors[j]
                     with col:
                         if st.button(f"📖 {major}", key=f"major_{cat}_{row_start+j}", use_container_width=True):
-                            if st.session_state.get("expanded_major") == major:
-                                del st.session_state["expanded_major"]
-                            else:
-                                st.session_state["expanded_major"] = major
-                            st.rerun()
-
-            # --- 该行下方的expander详情 ---
-            for major in row_majors:
-                is_open = st.session_state.get("expanded_major") == major
-                if is_open:
-                    with st.expander(f"📋 {major} — AI专业详情", expanded=True):
-                        st.markdown(f"""
-                        <div style="background:linear-gradient(135deg,#312e81 0%,#4f46e5 40%,#0ea5e9 100%);color:white;padding:14px 18px;border-radius:10px;margin-bottom:14px;">
-                            <div style="font-size:1.15rem;font-weight:700;">{cat_icons.get(cat,'📖')} {major}</div>
-                            <div style="opacity:0.85;font-size:0.82rem;margin-top:4px;">{cat} · 本科专业</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # AI详情（缓存）
-                        cache_key = f"major_ai_{major}"
-                        if cache_key not in st.session_state:
-                            with st.spinner(f"AI正在生成「{major}」的专业详情..."):
-                                prompt = f"请详细介绍「{major}」专业：\n1）主要学什么课程（列举核心课程）\n2）就业方向有哪些（具体岗位和行业）\n3）适合什么样的学生（性格、能力、兴趣）\n4）推荐院校（3-5所，说明推荐理由）\n5）发展前景和薪资水平"
-                                messages = [
-                                    {"role": "system", "content": "你是一位高校专业咨询专家，回答要具体、实用、有针对性，提供尽可能详细的信息。"},
-                                    {"role": "user", "content": prompt}
-                                ]
-                                st.session_state[cache_key] = call_deepseek(messages)
-                        st.markdown(f'<div class="recommend-result">{st.session_state[cache_key]}</div>', unsafe_allow_html=True)
-
-                        if st.button("收起详情", key=f"major_collapse_{major}"):
-                            if "expanded_major" in st.session_state:
-                                del st.session_state["expanded_major"]
-                            st.rerun()
+                            show_major_detail(major, cat)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
